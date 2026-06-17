@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SVG → TTF 图标合并</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>SVG → TTF 图标合并</h1>
+    <p class="sub">上传图标字体，批量把 SVG 写入空码位，一键生成新 TTF</p>
+  </header>
+
+  <main>
+    <!-- 1. base font -->
+    <section id="step-font" class="card">
+      <h2>1. 基础字体</h2>
+      <label class="drop" id="font-drop">
+        <input type="file" id="font-input" accept=".ttf,.otf" hidden>
+        <span id="font-label">拖入或点击选择 .ttf / .otf</span>
+      </label>
+      <div id="font-meta" class="meta hidden"></div>
+    </section>
+
+    <!-- 2. glyph grid -->
+    <section id="step-grid" class="card hidden">
+      <h2>2. 现有字形 <small>(点一个设为默认参考字形 ★)</small></h2>
+      <div id="grid" class="grid"></div>
+    </section>
+
+    <!-- 3. new icons -->
+    <section id="step-icons" class="card hidden">
+      <h2>3. 新增图标 (批量)</h2>
+      <label class="drop small" id="svg-drop">
+        <input type="file" id="svg-input" accept=".svg" multiple hidden>
+        <span>+ 拖入或选择多个 .svg</span>
+      </label>
+      <table id="icon-table" class="hidden">
+        <thead>
+          <tr><th>SVG</th><th>预览</th><th>码位</th><th>字形名</th><th>参考</th><th></th></tr>
+        </thead>
+        <tbody id="icon-rows"></tbody>
+      </table>
+    </section>
+
+    <!-- 4. generate -->
+    <section id="step-gen" class="card hidden">
+      <button id="generate-btn">生成并下载新 TTF</button>
+      <div id="status" class="status"></div>
+      <ul id="css-list" class="css-list"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
