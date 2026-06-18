@@ -14,6 +14,7 @@
 
   <nav class="tabs">
     <button class="tab active" data-mod="driver">行驶证</button>
+    <button class="tab" data-mod="idcard">身份证</button>
   </nav>
 
   <main>
@@ -53,6 +54,44 @@
             <figcaption>反页</figcaption>
             <img id="d-back" alt="反页">
             <a id="d-back-dl" download="driver_back.png">下载反页</a>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- 身份证模块 -->
+    <section id="mod-idcard" class="module hidden">
+      <div class="card">
+        <h2>1. 指定字段</h2>
+        <div class="form-row">
+          <label>姓名
+            <input id="i-name" placeholder="如 张三（留空随机）">
+          </label>
+        </div>
+        <div class="btns">
+          <button id="i-random">随机填充其余字段</button>
+          <button id="i-generate" class="primary">生成正反两面</button>
+        </div>
+        <div id="i-status" class="status"></div>
+      </div>
+
+      <div class="card hidden" id="i-record-card">
+        <h2>2. 当前记录 <small>(可改后再生成)</small></h2>
+        <div id="i-record" class="record-grid"></div>
+      </div>
+
+      <div class="card hidden" id="i-result-card">
+        <h2>3. 结果</h2>
+        <div class="results">
+          <figure>
+            <figcaption>正面</figcaption>
+            <img id="i-front" alt="身份证正面">
+            <a id="i-front-dl" download="idcard_front.png">下载正面</a>
+          </figure>
+          <figure>
+            <figcaption>背面</figcaption>
+            <img id="i-back" alt="身份证背面">
+            <a id="i-back-dl" download="idcard_back.png">下载背面</a>
           </figure>
         </div>
       </div>

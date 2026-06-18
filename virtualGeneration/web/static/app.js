@@ -27,12 +27,41 @@ const LABELS = {
 
 const ORDER = Object.keys(LABELS);
 
+const ID_LABELS = {
+  name: "姓名",
+  gender: "性别",
+  nation: "民族",
+  birth_year: "出生年",
+  birth_month: "出生月",
+  birth_day: "出生日",
+  address: "住址",
+  id_no: "公民身份号码",
+};
+
+const ID_ORDER = Object.keys(ID_LABELS);
+
 let currentRecord = null;
+let currentIdRecord = null;
 
 function setStatus(msg, kind) {
   const s = $("#d-status");
   s.textContent = msg;
   s.className = "status" + (kind ? " " + kind : "");
+}
+
+function setIdStatus(msg, kind) {
+  const s = $("#i-status");
+  s.textContent = msg;
+  s.className = "status" + (kind ? " " + kind : "");
+}
+
+function switchModule(mod) {
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.mod === mod);
+  });
+  document.querySelectorAll(".module").forEach((section) => {
+    section.classList.toggle("hidden", section.id !== "mod-" + mod);
+  });
 }
 
 // 渲染记录为可编辑表单
@@ -54,6 +83,26 @@ function renderRecord(rec) {
     box.append(label);
   }
   $("#d-record-card").classList.remove("hidden");
+}
+
+function renderIdRecord(rec) {
+  currentIdRecord = rec;
+  const box = $("#i-record");
+  box.innerHTML = "";
+  for (const key of ID_ORDER) {
+    if (!(key in rec)) continue;
+    const label = document.createElement("label");
+    label.textContent = ID_LABELS[key];
+    const input = document.createElement("input");
+    input.value = rec[key];
+    input.dataset.key = key;
+    input.addEventListener("change", () => {
+      currentIdRecord[key] = input.value;
+    });
+    label.append(input);
+    box.append(label);
+  }
+  $("#i-record-card").classList.remove("hidden");
 }
 
 async function doRandom() {
@@ -119,5 +168,66 @@ async function doGenerate() {
   setStatus("生成成功", "ok");
 }
 
+async function doIdRandom() {
+  setIdStatus("生成随机记录中…");
+  const body = { name: $("#i-name").value.trim() || null };
+  let res;
+  try {
+    res = await fetch("/api/idcard/random", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    return setIdStatus("网络错误: " + e.message, "error");
+  }
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    return setIdStatus(d.detail || "随机生成失败", "error");
+  }
+  const rec = await res.json();
+  renderIdRecord(rec);
+  setIdStatus("已生成随机记录，可编辑后点生成", "ok");
+}
+
+async function doIdGenerate() {
+  if (!currentIdRecord) {
+    await doIdRandom();
+    if (!currentIdRecord) return;
+  }
+  const name = $("#i-name").value.trim();
+  if (name) currentIdRecord.name = name;
+
+  setIdStatus("渲染中…");
+  let res;
+  try {
+    res = await fetch("/api/idcard/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(currentIdRecord),
+    });
+  } catch (e) {
+    return setIdStatus("网络错误: " + e.message, "error");
+  }
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    return setIdStatus(d.detail || "渲染失败", "error");
+  }
+  const data = await res.json();
+  const front = "data:image/png;base64," + data.front_png;
+  const back = "data:image/png;base64," + data.back_png;
+  $("#i-front").src = front;
+  $("#i-back").src = back;
+  $("#i-front-dl").href = front;
+  $("#i-back-dl").href = back;
+  $("#i-result-card").classList.remove("hidden");
+  setIdStatus("生成成功", "ok");
+}
+
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", () => switchModule(tab.dataset.mod));
+});
 $("#d-random").addEventListener("click", doRandom);
 $("#d-generate").addEventListener("click", doGenerate);
+$("#i-random").addEventListener("click", doIdRandom);
+$("#i-generate").addEventListener("click", doIdGenerate);

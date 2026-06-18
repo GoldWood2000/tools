@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import fields as F
+import idcard as ID
 import render as R
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -62,6 +63,21 @@ class DriverRecord(BaseModel):
     inspect_month: str
 
 
+class IdcardInput(BaseModel):
+    name: str | None = None
+
+
+class IdcardRecord(BaseModel):
+    name: str
+    gender: str
+    nation: str
+    birth_year: str
+    birth_month: str
+    birth_day: str
+    address: str
+    id_no: str
+
+
 # ----------------------------------------------------------- helpers
 
 def png_b64(img):
@@ -86,6 +102,27 @@ async def driver_generate(rec: DriverRecord):
     try:
         front = R.render_front(record)
         back = R.render_back(record)
+    except Exception as exc:
+        raise HTTPException(500, "渲染失败: %s" % exc)
+    return {
+        "front_png": png_b64(front),
+        "back_png": png_b64(back),
+    }
+
+
+@app.post("/api/idcard/random")
+async def idcard_random(inp: IdcardInput):
+    """随机生成身份证测试记录；name 若给定则用指定值。"""
+    return ID.random_record(name=inp.name or None)
+
+
+@app.post("/api/idcard/generate")
+async def idcard_generate(rec: IdcardRecord):
+    """渲染身份证正面；背面不替换字段，直接返回原图。"""
+    record = rec.model_dump()
+    try:
+        front = ID.render_front(record)
+        back = ID.render_back()
     except Exception as exc:
         raise HTTPException(500, "渲染失败: %s" % exc)
     return {
