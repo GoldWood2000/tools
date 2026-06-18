@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>字体合并控制台</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <style id="dynamicFont"></style>
+</head>
+
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div class="brand-lockup">
+        <p class="kicker">TTF Studio Workbench</p>
+        <h1>字体合并控制台</h1>
+        <p class="topnote">面向本地设计和前端工作流：选择源字体、选择目标字体、检查字符覆盖，然后生成可下载的 TTF 文件。</p>
+      </div>
+      <aside class="system-card" aria-label="本地服务状态">
+        <span class="status-pill" id="serverStatus">本地服务在线</span>
+        <div class="system-line">
+          <span>root</span>
+          <b>fonts/</b>
+        </div>
+        <div class="system-line">
+          <span>port</span>
+          <b>8788</b>
+        </div>
+      </aside>
+    </header>
+
+    <section class="folder-rail" aria-label="字体目录">
+      <div>
+        <span class="folder-key">source</span>
+        <strong>源字体</strong>
+      </div>
+      <div>
+        <span class="folder-key">target</span>
+        <strong>目标字体</strong>
+      </div>
+      <div>
+        <span class="folder-key">uploads</span>
+        <strong>网页上传</strong>
+      </div>
+      <div>
+        <span class="folder-key">output</span>
+        <strong>生成结果</strong>
+      </div>
+    </section>
+
+    <section class="workbench">
+      <div class="tool-column">
+        <section class="panel file-panel" aria-labelledby="font-panel-title">
+          <div class="panel-heading">
+            <div>
+              <p class="label">Font Sources</p>
+              <h2 id="font-panel-title">选择字体</h2>
+            </div>
+            <button class="icon-button" id="refreshButton" title="刷新字体列表" aria-label="刷新字体列表">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 12a8 8 0 0 1-14.2 5.1" />
+                <path d="M4 12A8 8 0 0 1 18.2 6.9" />
+                <path d="M18 3v4h-4" />
+                <path d="M6 21v-4h4" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="file-grid">
+            <div class="field-block">
+              <label for="sourceSelect">源字体</label>
+              <select id="sourceSelect"></select>
+              <div class="select-meta" id="sourceMeta"></div>
+              <div class="upload-line">
+                <input id="sourceUpload" type="file" accept=".ttf,font/ttf" />
+                <button class="button small" id="sourceUploadButton">上传源字体</button>
+              </div>
+            </div>
+
+            <div class="field-block">
+              <label for="targetSelect">目标字体</label>
+              <select id="targetSelect"></select>
+              <div class="select-meta" id="targetMeta"></div>
+              <div class="upload-line">
+                <input id="targetUpload" type="file" accept=".ttf,font/ttf" />
+                <button class="button small ghost" id="targetUploadButton">上传目标字体</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel editor-panel" aria-labelledby="character-panel-title">
+          <div class="panel-heading">
+            <div>
+              <p class="label">Character Set</p>
+              <h2 id="character-panel-title">输入字符</h2>
+            </div>
+            <div class="metrics" aria-label="字符统计">
+              <span><b id="charCount">0</b> 字符</span>
+              <span><b id="uniqueCount">0</b> 去重</span>
+            </div>
+          </div>
+
+          <textarea id="textInput" spellcheck="false" placeholder="输入字符" aria-label="要添加的文字"></textarea>
+
+          <div class="field-block output-field">
+            <label for="outputName">输出文件名</label>
+            <input id="outputName" placeholder="留空自动生成" />
+          </div>
+
+          <div class="action-row">
+            <button class="button secondary" id="checkButton">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m5 12 4 4L19 6" />
+              </svg>
+              <span>检查字符</span>
+            </button>
+            <button class="button primary" id="mergeButton">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M8 5v14l11-7Z" />
+              </svg>
+              <span>开始合并</span>
+            </button>
+            <button class="icon-button" id="clearButton" title="清空输入" aria-label="清空输入">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <aside class="result-column">
+        <section class="panel result-panel" aria-labelledby="output-panel-title">
+          <div class="panel-heading compact">
+            <div>
+              <p class="label">Output Font</p>
+              <h2 id="output-panel-title"><span id="resultTitle">暂无输出</span></h2>
+            </div>
+            <a class="download-link disabled" id="downloadLink" href="#" aria-disabled="true">下载</a>
+          </div>
+
+          <div class="preview-box">
+            <div class="preview-line" id="previewLine">支付账户定价</div>
+            <input id="previewInput" value="支付账户定价" aria-label="预览文字" />
+          </div>
+
+          <div class="check-result" id="checkResult" aria-live="polite">字符检查结果会显示在这里。</div>
+
+          <div class="generated-list" id="generatedList"></div>
+        </section>
+
+        <section class="panel log-panel" aria-labelledby="log-panel-title">
+          <div class="panel-heading compact">
+            <div>
+              <p class="label">Runtime Log</p>
+              <h2 id="log-panel-title"><span id="jobTitle">等待运行</span></h2>
+            </div>
+            <span class="run-state idle" id="runState">Idle</span>
+          </div>
+          <pre id="logOutput" aria-live="polite">等待操作...</pre>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script src="/assets/app.js"></script>
+</body>
+
+</html>

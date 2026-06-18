@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-18T00:00:00+08:00",
+  "title": "Design System: TTF Font Merge Console",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "Carbon Ink",
+        "canonical": "#161616",
+        "tonalRamp": ["#151515", "#2b2b2b", "#424242", "#5c5c5c", "#777777", "#949494", "#b7b7b7", "#eeeeee"]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Workbench Rust",
+        "canonical": "#d4522f",
+        "tonalRamp": ["#33100a", "#5a1d12", "#832b1b", "#a9331d", "#d4522f", "#e98365", "#f2b7a5", "#fbe8e2"]
+      },
+      "teal": {
+        "role": "secondary",
+        "displayName": "Instrument Teal",
+        "canonical": "#126c68",
+        "tonalRamp": ["#061d1c", "#0a3533", "#0f4f4b", "#126c68", "#1e8984", "#5dafaa", "#a2d3d0", "#d9ebe7"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Bench Paper",
+        "canonical": "#f6f7f2",
+        "tonalRamp": ["#20211f", "#4a4c47", "#71736d", "#999c93", "#c0c3bb", "#dce0d7", "#eef1e9", "#f6f7f2"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Workbench Display",
+        "purpose": "Product title and font specimen preview only."
+      },
+      "body": {
+        "displayName": "Product Sans",
+        "purpose": "Controls, labels, metadata, and repeated task UI."
+      },
+      "mono": {
+        "displayName": "Console Mono",
+        "purpose": "Runtime logs and command-like output."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel-ambient",
+        "value": "0 18px 50px rgba(21, 25, 23, 0.12)",
+        "purpose": "Main panel separation from the workbench background."
+      },
+      {
+        "name": "interactive-lift",
+        "value": "0 8px 22px rgba(22, 22, 22, 0.12)",
+        "purpose": "Short hover feedback for interactive controls."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-quick",
+        "value": "160ms ease",
+        "purpose": "Default hover and state transition for controls."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stack",
+        "value": "900px"
+      },
+      {
+        "name": "compact",
+        "value": "560px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary merge action.",
+      "html": "<button class=\"ds-btn-primary\">开始合并</button>",
+      "css": ".ds-btn-primary { min-height: 44px; border: 1px solid #d4522f; border-radius: 8px; padding: 0 16px; background: #d4522f; color: #fff; font: 900 14px/1.2 'Avenir Next', 'PingFang SC', sans-serif; cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease; } .ds-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(22, 22, 22, 0.12); } .ds-btn-primary:focus-visible { outline: 3px solid rgba(18, 108, 104, 0.26); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Validation and secondary task action.",
+      "html": "<button class=\"ds-btn-secondary\">检查字符</button>",
+      "css": ".ds-btn-secondary { min-height: 44px; border: 1px solid #161616; border-radius: 8px; padding: 0 16px; background: #161616; color: #fff; font: 900 14px/1.2 'Avenir Next', 'PingFang SC', sans-serif; cursor: pointer; transition: transform 160ms ease, box-shadow 160ms ease; } .ds-btn-secondary:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(22, 22, 22, 0.12); } .ds-btn-secondary:focus-visible { outline: 3px solid rgba(18, 108, 104, 0.26); outline-offset: 2px; }"
+    },
+    {
+      "name": "Field Block",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labeled font/file input container.",
+      "html": "<label class=\"ds-field\"><span>源字体</span><select><option>source_font.ttf</option></select></label>",
+      "css": ".ds-field { display: grid; gap: 8px; border: 1px solid #d6dad5; border-radius: 8px; padding: 14px; background: #f0f3ee; color: #161616; } .ds-field span { color: #a9331d; font: 900 12px/1.2 'Avenir Next', 'PingFang SC', sans-serif; text-transform: uppercase; } .ds-field select { min-height: 42px; border: 1px solid #c8cec8; border-radius: 8px; padding: 0 12px; background: #fbfcf8; color: #161616; } .ds-field select:focus-visible { outline: 3px solid rgba(18, 108, 104, 0.16); border-color: #126c68; }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Primary workbench surface.",
+      "html": "<section class=\"ds-panel\"><h2>选择字体</h2><p>源字体与目标字体保持分区清晰。</p></section>",
+      "css": ".ds-panel { border: 1px solid #d6dad5; border-radius: 8px; padding: 18px; background: #fff; color: #161616; box-shadow: 0 18px 50px rgba(21, 25, 23, 0.12); } .ds-panel h2 { margin: 0 0 8px; font: 700 22px/1.2 'Avenir Next', 'PingFang SC', sans-serif; } .ds-panel p { margin: 0; color: #6b6f72; font: 400 14px/1.55 'Avenir Next', 'PingFang SC', sans-serif; }"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "status-pill",
+      "description": "Compact online or run-state badge.",
+      "html": "<span class=\"ds-status-pill\">本地服务在线</span>",
+      "css": ".ds-status-pill { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; border: 1px solid #d6dad5; border-radius: 999px; padding: 0 13px; background: rgba(255,255,255,0.82); color: #126c68; font: 800 13px/1.2 'Avenir Next', 'PingFang SC', sans-serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Studio Workbench",
+    "overview": "A compact, tactile, technically trustworthy local tool for designers and frontend engineers who need to merge Chinese TTF font characters without losing confidence in the file workflow.",
+    "keyCharacteristics": [
+      "Focused source-target-character-output workflow",
+      "Restrained warm-neutral surfaces with rust and teal functional accents",
+      "Terminal logs as a confidence surface",
+      "Explicit file scope metadata"
+    ],
+    "rules": [
+      {
+        "name": "The Functional Accent Rule",
+        "body": "Rust and teal exist for action and state, not decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Display Restraint Rule",
+        "body": "Use WorkbenchTitle only for the product title or font previews.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do keep file scopes visible.",
+      "Do keep logs readable.",
+      "Do preserve keyboard focus and state feedback."
+    ],
+    "donts": [
+      "Don't make it look like a generic enterprise backend system.",
+      "Don't add marketing hero sections.",
+      "Don't use dark-mode terminal cosplay as the default identity."
+    ]
+  }
+}

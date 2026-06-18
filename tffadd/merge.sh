@@ -5,9 +5,9 @@ cd "$(dirname "$0")"
 source venv/bin/activate
 
 # 设置默认值
-SOURCE="source_font.ttf"
-TARGET="AlimamaShuHeiTi-Bold.ttf"
-OUTPUT="AlimamaShuHeiTi-Bold_merged.ttf"
+SOURCE="fonts/source/source_font.ttf"
+TARGET="fonts/target/AlimamaShuHeiTi-Bold.ttf"
+OUTPUT_DIR="fonts/output"
 
 # 如果传入参数，使用传入的字符内容
 if [ -z "$1" ]; then
@@ -33,7 +33,7 @@ if [ $CHECK_RESULT -ne 0 ]; then
     echo "❌ 部分字符不存在于源字体中，无法添加"
     echo ""
     echo "💡 提示：可以使用以下命令查看源字体中有哪些字符："
-    echo "   python3 font_inspector.py source_font.ttf"
+    echo "   python3 font_inspector.py fonts/source/source_font.ttf"
     exit 1
 fi
 
@@ -43,7 +43,8 @@ echo ""
 
 # 生成输出文件名（添加时间戳以区分不同版本）
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-OUTPUT="AlimamaShuHeiTi-Bold_${TIMESTAMP}.ttf"
+mkdir -p "$OUTPUT_DIR"
+OUTPUT="$OUTPUT_DIR/AlimamaShuHeiTi-Bold_${TIMESTAMP}.ttf"
 
 echo "🚀 开始合并字体文件..."
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
