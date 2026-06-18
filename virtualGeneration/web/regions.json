@@ -1,0 +1,226 @@
+{
+  "front": [
+    {
+      "key": "plate",
+      "region": [
+        88,
+        80,
+        238,
+        112
+      ],
+      "size": 13,
+      "align": "left"
+    },
+    {
+      "key": "vehicle_type",
+      "region": [
+        378,
+        80,
+        586,
+        112
+      ],
+      "size": 11,
+      "align": "left"
+    },
+    {
+      "key": "owner",
+      "region": [
+        96,
+        126,
+        180,
+        160
+      ],
+      "size": 12,
+      "align": "left"
+    },
+    {
+      "key": "address",
+      "region": [
+        92,
+        164,
+        395,
+        202
+      ],
+      "size": 11,
+      "align": "left"
+    },
+    {
+      "key": "use_char",
+      "region": [
+        92,
+        218,
+        154,
+        250
+      ],
+      "size": 12,
+      "align": "left"
+    },
+    {
+      "key": "model",
+      "region": [
+        324,
+        216,
+        540,
+        247
+      ],
+      "size": 11,
+      "align": "left"
+    },
+    {
+      "key": "vin",
+      "region": [
+        282,
+        272,
+        524,
+        304
+      ],
+      "size": 11,
+      "align": "left"
+    },
+    {
+      "key": "engine",
+      "region": [
+        296,
+        318,
+        438,
+        346
+      ],
+      "size": 11,
+      "align": "left"
+    },
+    {
+      "key": "register_date",
+      "region": [
+        264,
+        360,
+        376,
+        392
+      ],
+      "size": 11,
+      "align": "left"
+    },
+    {
+      "key": "issue_date",
+      "region": [
+        500,
+        360,
+        604,
+        392
+      ],
+      "size": 11,
+      "align": "left"
+    }
+  ],
+  "back": [
+    {
+      "key": "plate",
+      "region": [
+        104,
+        24,
+        238,
+        52
+      ],
+      "size": 12,
+      "align": "left"
+    },
+    {
+      "key": "file_no",
+      "region": [
+        362,
+        24,
+        528,
+        52
+      ],
+      "size": 12,
+      "align": "left"
+    },
+    {
+      "key": "passengers",
+      "region": [
+        104,
+        62,
+        132,
+        92
+      ],
+      "size": 12,
+      "align": "left"
+    },
+    {
+      "key": "gross_mass",
+      "region": [
+        482,
+        64,
+        564,
+        94
+      ],
+      "size": 12,
+      "align": "left"
+    },
+    {
+      "key": "curb_mass",
+      "region": [
+        96,
+        112,
+        200,
+        146
+      ],
+      "size": 12,
+      "align": "left"
+    },
+    {
+      "key": "load_mass",
+      "region": [
+        472,
+        114,
+        574,
+        146
+      ],
+      "size": 12,
+      "align": "left"
+    },
+    {
+      "key": "dimensions",
+      "region": [
+        96,
+        158,
+        334,
+        196
+      ],
+      "size": 12,
+      "align": "left"
+    },
+    {
+      "key": "traction_mass",
+      "region": [
+        472,
+        160,
+        542,
+        196
+      ],
+      "size": 12,
+      "align": "left"
+    },
+    {
+      "key": "inspect_year",
+      "region": [
+        274,
+        276,
+        348,
+        306
+      ],
+      "size": 12,
+      "align": "center"
+    },
+    {
+      "key": "inspect_month",
+      "region": [
+        388,
+        276,
+        426,
+        306
+      ],
+      "size": 12,
+      "align": "center"
+    }
+  ]
+}

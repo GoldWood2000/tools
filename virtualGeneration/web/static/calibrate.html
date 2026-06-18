@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>字段坐标校准 - 行驶证</title>
+  <style>
+    :root{--bg:#0f1115;--card:#1a1d24;--line:#2a2f3a;--fg:#e6e9ef;--mut:#9aa3b2;--accent:#4f8cff;--ok:#67c23a;--err:#f56c6c}
+    *{box-sizing:border-box}
+    body{margin:0;font:14px/1.5 -apple-system,"PingFang SC",sans-serif;background:var(--bg);color:var(--fg)}
+    header{padding:18px 24px 6px}
+    header h1{margin:0;font-size:18px}
+    header .sub{margin:4px 0 0;color:var(--mut);font-size:13px}
+    .bar{display:flex;gap:10px;align-items:center;padding:10px 24px;flex-wrap:wrap}
+    button{border:none;border-radius:7px;padding:8px 14px;font:inherit;cursor:pointer}
+    .seg button{background:#2a2f3a;color:var(--mut)}
+    .seg button.on{background:var(--accent);color:#fff}
+    .primary{background:var(--accent);color:#fff}
+    .ghost{background:#2a2f3a;color:var(--fg)}
+    .status{color:var(--mut);min-width:120px}
+    .status.ok{color:var(--ok)} .status.err{color:var(--err)}
+    main{display:flex;gap:16px;padding:8px 24px 60px;align-items:flex-start;flex-wrap:wrap}
+    #stage-wrap{position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+    #stage{position:relative;display:block}
+    #tpl{display:block;image-rendering:auto}
+    .box{position:absolute;border:1.5px solid rgba(79,140,255,.9);background:rgba(79,140,255,.12);cursor:move;font-size:10px;color:#fff}
+    .box.sel{border-color:var(--ok);background:rgba(103,194,58,.18);z-index:5}
+    .box .tag{position:absolute;top:-15px;left:0;white-space:nowrap;background:rgba(0,0,0,.6);padding:0 3px;border-radius:3px;font-size:9px;pointer-events:none}
+    .box .h{position:absolute;width:9px;height:9px;background:var(--ok);right:-5px;bottom:-5px;cursor:nwse-resize;border-radius:2px}
+    aside{flex:1 1 300px;min-width:280px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+    .card h2{margin:0 0 10px;font-size:14px}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th,td{text-align:left;padding:3px 5px;border-bottom:1px solid var(--line)}
+    th{color:var(--mut);font-weight:500}
+    tr.sel{background:rgba(103,194,58,.12)}
+    tr td:first-child{cursor:pointer}
+    input.num{width:46px;background:#11141a;border:1px solid var(--line);color:var(--fg);border-radius:4px;padding:2px 4px;font:inherit;font-family:monospace}
+    .hint{color:var(--mut);font-size:12px;margin:8px 0 0}
+    #preview img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;margin-top:8px}
+    a.nav{color:var(--accent);text-decoration:none;font-size:13px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>字段坐标校准 · 行驶证</h1>
+    <p class="sub">拖动框对准旧字位置，调好点保存。<a class="nav" href="/">← 回生成页</a></p>
+  </header>
+
+  <div class="bar">
+    <span class="seg">
+      <button id="seg-front" class="on" data-side="front">正页</button>
+      <button id="seg-back" data-side="back">反页</button>
+    </span>
+    <button id="btn-preview" class="ghost">实时预览</button>
+    <button id="btn-save" class="primary">保存坐标</button>
+    <span id="status" class="status"></span>
+  </div>
+
+  <main>
+    <div id="stage-wrap">
+      <div id="stage"><img id="tpl" alt="模板"></div>
+    </div>
+    <aside>
+      <div class="card">
+        <h2>字段 <small id="side-label">正页</small></h2>
+        <table>
+          <thead><tr><th>字段</th><th>x0</th><th>y0</th><th>x1</th><th>y1</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <p class="hint">点字段名选中 → 图上拖动移动、拖右下角缩放。也可直接改数字。</p>
+      </div>
+      <div class="card" id="preview" style="margin-top:12px">
+        <h2>预览</h2>
+        <div id="preview-body" class="hint">点「实时预览」用示例数据渲染当前坐标。</div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="calibrate.js"></script>
+</body>
+</html>

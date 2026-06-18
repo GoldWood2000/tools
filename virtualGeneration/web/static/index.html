@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>虚拟证件生成</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>虚拟证件生成</h1>
+    <p class="sub">测试 / 样例数据用途</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-mod="driver">行驶证</button>
+  </nav>
+
+  <main>
+    <!-- 行驶证模块 -->
+    <section id="mod-driver" class="module">
+      <div class="card">
+        <h2>1. 指定字段</h2>
+        <div class="form-row">
+          <label>号牌号码
+            <input id="d-plate" placeholder="如 粤B12345（留空随机）">
+          </label>
+          <label>所有人
+            <input id="d-owner" placeholder="如 张三（留空随机）">
+          </label>
+        </div>
+        <div class="btns">
+          <button id="d-random">随机填充其余字段</button>
+          <button id="d-generate" class="primary">生成正反两页</button>
+        </div>
+        <div id="d-status" class="status"></div>
+      </div>
+
+      <div class="card hidden" id="d-record-card">
+        <h2>2. 当前记录 <small>(可改后再生成)</small></h2>
+        <div id="d-record" class="record-grid"></div>
+      </div>
+
+      <div class="card hidden" id="d-result-card">
+        <h2>3. 结果</h2>
+        <div class="results">
+          <figure>
+            <figcaption>正页</figcaption>
+            <img id="d-front" alt="正页">
+            <a id="d-front-dl" download="driver_front.png">下载正页</a>
+          </figure>
+          <figure>
+            <figcaption>反页</figcaption>
+            <img id="d-back" alt="反页">
+            <a id="d-back-dl" download="driver_back.png">下载反页</a>
+          </figure>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
