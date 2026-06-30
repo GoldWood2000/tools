@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG → PNG 转换器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      min-height: 100vh;
+      padding: 24px;
+      color: #1f2937;
+    }
+
+    .wrap {
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #fff;
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+
+    .sub {
+      color: rgba(255, 255, 255, .85);
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media(max-width:720px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .2);
+      padding: 20px;
+    }
+
+    .card h2 {
+      font-size: 15px;
+      margin-bottom: 12px;
+      color: #374151;
+    }
+
+    textarea {
+      width: 100%;
+      height: 280px;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      resize: vertical;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: #667eea;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .row label {
+      font-size: 13px;
+      color: #4b5563;
+    }
+
+    .row input[type=number] {
+      width: 72px;
+      padding: 6px 8px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .row input[type=number]:focus {
+      border-color: #667eea;
+    }
+
+    button {
+      padding: 9px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: transform .15s;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      color: #fff;
+    }
+
+    .btn-ghost {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .preview-box {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      min-height: 280px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        repeating-conic-gradient(#f3f4f6 0% 25%, #fff 0% 50%) 50%/20px 20px;
+      overflow: auto;
+      padding: 16px;
+    }
+
+    .preview-box img,
+    .preview-box svg {
+      max-width: 100%;
+    }
+
+    .err {
+      color: #b91c1c;
+      font-size: 12px;
+      margin-top: 10px;
+      min-height: 16px;
+    }
+
+    .meta {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 10px;
+      min-height: 16px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>SVG → PNG 转换器</h1>
+    <p class="sub">粘贴 SVG 元素 → 实时预览 → 导出 PNG</p>
+    <div class="grid">
+      <div class="card">
+        <h2>SVG 输入</h2>
+        <textarea id="svgInput" spellcheck="false"
+          placeholder='<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">&#10;  <circle cx="12" cy="12" r="10" fill="#667eea"/>&#10;</svg>'></textarea>
+        <div class="row">
+          <label>宽 <input type="number" id="w" value="80" min="1"></label>
+          <label>高 <input type="number" id="h" value="80" min="1"></label>
+          <label>倍率 <input type="number" id="scale" value="2" min="1" step="1"></label>
+        </div>
+        <div class="err" id="err"></div>
+      </div>
+      <div class="card">
+        <h2>预览 (PNG)</h2>
+        <div class="preview-box" id="previewBox"><span style="color:#9ca3af;font-size:13px">在左侧输入 SVG</span></div>
+        <div class="meta" id="meta"></div>
+        <div class="row">
+          <button class="btn-primary" id="downloadBtn">下载 PNG</button>
+          <button class="btn-ghost" id="copyBtn">复制到剪贴板</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const svgInput = document.getElementById('svgInput');
+    const wEl = document.getElementById('w');
+    const hEl = document.getElementById('h');
+    const scaleEl = document.getElementById('scale');
+    const previewBox = document.getElementById('previewBox');
+    const err = document.getElementById('err');
+    const meta = document.getElementById('meta');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const copyBtn = document.getElementById('copyBtn');
+
+    let currentBlob = null;
+    let debounce = null;
+
+    function normalizeSvg(raw, w, h) {
+      let s = raw.trim();
+      if (!s) return null;
+      // strip xml declaration (img can choke on it in some engines, optional)
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(s, 'image/svg+xml');
+      const parseErr = doc.querySelector('parsererror');
+      if (parseErr) throw new Error('SVG 解析失败：检查标签是否闭合');
+      const svg = doc.querySelector('svg');
+      if (!svg) throw new Error('未找到 <svg> 元素');
+      // ensure xmlns
+      if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      // force width/height so canvas drawImage has intrinsic size
+      svg.setAttribute('width', w);
+      svg.setAttribute('height', h);
+      return new XMLSerializer().serializeToString(svg);
+    }
+
+    async function render() {
+      err.textContent = '';
+      const raw = svgInput.value;
+      const w = parseInt(wEl.value) || 24;
+      const h = parseInt(hEl.value) || 24;
+      const scale = parseInt(scaleEl.value) || 1;
+      let svgStr;
+      try { svgStr = normalizeSvg(raw, w, h); }
+      catch (e) { err.textContent = e.message; resetPreview(); return; }
+      if (!svgStr) { resetPreview(); return; }
+
+      const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = w * scale; c.height = h * scale;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, w * scale, h * scale);
+        URL.revokeObjectURL(url);
+        c.toBlob(png => {
+          if (!png) { err.textContent = 'canvas 导出失败（可能 SVG 含外链资源污染画布）'; return; }
+          currentBlob = png;
+          const pngUrl = URL.createObjectURL(png);
+          previewBox.innerHTML = '';
+          const pimg = new Image();
+          pimg.src = pngUrl;
+          previewBox.appendChild(pimg);
+          meta.textContent = `输出 ${w * scale}×${h * scale}px · ${(png.size / 1024).toFixed(1)} KB`;
+        }, 'image/png');
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); err.textContent = 'SVG 加载失败：检查 xmlns 是否存在'; resetPreview(); };
+      img.src = url;
+    }
+
+    function resetPreview() {
+      currentBlob = null;
+      previewBox.innerHTML = '<span style="color:#9ca3af;font-size:13px">在左侧输入 SVG</span>';
+      meta.textContent = '';
+    }
+
+    function schedule() { clearTimeout(debounce); debounce = setTimeout(render, 250); }
+
+    [svgInput, wEl, hEl, scaleEl].forEach(el => el.addEventListener('input', schedule));
+
+    downloadBtn.addEventListener('click', () => {
+      if (!currentBlob) { err.textContent = '无可下载内容'; return; }
+      const url = URL.createObjectURL(currentBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'icon.png'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      if (!currentBlob) { err.textContent = '无可复制内容'; return; }
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': currentBlob })]);
+        meta.textContent = '已复制到剪贴板';
+      } catch (e) { err.textContent = '复制失败：' + e.message; }
+    });
+  </script>
+</body>
+
+</html>
