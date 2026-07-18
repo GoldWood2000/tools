@@ -6,6 +6,7 @@ TTF 字体文件字符添加工具 - 完整修复版
 """
 
 import argparse
+import shutil
 import sys
 from pathlib import Path
 from fontTools import ttLib
@@ -57,6 +58,19 @@ def extract_glyphs_from_font(font_path, characters):
         print(f"⚠️  以下字符在源字体中不存在: {''.join(missing_chars)}")
     
     return glyphs, font
+
+
+def sync_output_to_target(output_path, target_font_path):
+    """将生成的字体文件同步回目标字体文件。"""
+    if not output_path.exists():
+        raise FileNotFoundError(f"输出字体文件不存在: {output_path}")
+
+    if target_font_path.exists() and output_path.resolve() == target_font_path.resolve():
+        return
+
+    target_font_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(output_path, target_font_path)
+    print(f"🔁 已同步更新目标字体: {target_font_path}")
 
 
 def add_glyphs_to_target_font_fixed(target_font_path, source_glyphs, source_font, output_path):
@@ -177,6 +191,7 @@ def add_glyphs_to_target_font_fixed(target_font_path, source_glyphs, source_font
         
         # 保存文件
         target_font.save(output_path)
+        sync_output_to_target(Path(output_path), Path(target_font_path))
         
         print(f"\n✅ 成功保存到: {output_path}")
         print(f"📊 统计: 新增 {added_count} 个字符，更新 {updated_count} 个字符")
