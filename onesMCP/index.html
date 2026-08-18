@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="ONES 迭代事项批量处理台交互原型" />
+    <title>Orbit · ONES 迭代工作台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <section class="connect-view" id="connect-view" aria-labelledby="connect-title">
+      <div class="connect-backdrop" aria-hidden="true">
+        <span class="glow glow-one"></span>
+        <span class="glow glow-two"></span>
+        <span class="grid"></span>
+      </div>
+
+      <div class="connect-intro">
+        <a class="brand brand-on-dark" href="#" aria-label="Orbit 首页">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+          <span>Orbit</span>
+        </a>
+        <div class="intro-copy">
+          <span class="eyebrow eyebrow-dark"><i></i> ONES ITERATION DESK</span>
+          <h1 id="connect-title">把迭代里的杂音，<br />变成一次清晰的行动。</h1>
+          <p>聚合与你相关的事项，快速确认上下文，再用一次操作推进整个迭代。</p>
+        </div>
+        <div class="feature-row" aria-label="产品特点">
+          <span>项目聚合</span><i></i><span>工作流校验</span><i></i><span>逐项回执</span>
+        </div>
+      </div>
+
+      <div class="connect-panel-wrap">
+        <form class="connect-card" id="connect-form">
+          <div class="card-heading">
+            <span class="product-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M7.5 3.75h9a3.75 3.75 0 0 1 3.75 3.75v9a3.75 3.75 0 0 1-3.75 3.75h-9a3.75 3.75 0 0 1-3.75-3.75v-9A3.75 3.75 0 0 1 7.5 3.75Z"/><path d="M8 12h8M12 8v8"/></svg>
+            </span>
+            <div>
+              <h2>连接你的 ONES</h2>
+              <p>连接后即可载入项目与迭代</p>
+            </div>
+          </div>
+
+          <label class="field">
+            <span>MCP 服务器地址</span>
+            <div class="input-shell">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10.5 13.5a4 4 0 0 0 5.66 0l2.12-2.12a4 4 0 0 0-5.66-5.66L11.4 6.94"/><path d="M13.5 10.5a4 4 0 0 0-5.66 0l-2.12 2.12a4 4 0 0 0 5.66 5.66l1.22-1.22"/></svg>
+              <input id="server-url" type="url" value="https://sz.ones.cn/mcp" readonly autocomplete="url" />
+            </div>
+          </label>
+
+          <div class="oauth-explainer">
+            <span class="oauth-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 2.9 8.2 7 10 4.1-1.8 7-5.4 7-10V6l-7-3Z"/><path d="m9.5 12 1.7 1.7 3.6-3.9"/></svg></span>
+            <div><strong>通过 ONES 官方 OAuth 授权</strong><p>跳转 ONES 登录，选择团队和访问范围后自动返回。</p></div>
+          </div>
+
+          <p class="security-note">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            Token 授权客户端生成的 Token 不等同于 MCP OAuth Access Token，无需在此手动填写。
+          </p>
+
+          <button class="button button-primary button-large" type="submit">
+            <span>使用 ONES OAuth 授权</span>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+          </button>
+
+          <div class="divider"><span>或</span></div>
+          <button class="button button-quiet button-large" id="demo-button" type="button">
+            暂时使用演示数据
+          </button>
+          <p class="form-error" id="form-error" role="alert"></p>
+        </form>
+      </div>
+    </section>
+
+    <div class="app-shell" id="app-shell" hidden>
+      <aside class="sidebar">
+        <a class="brand" href="#" aria-label="Orbit 首页">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+          <span>Orbit</span>
+        </a>
+
+        <nav class="main-nav" aria-label="主导航">
+          <a class="nav-item is-active" href="#workbench">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 2v4M16 2v4M3 9h18"/></svg>
+            <span>迭代工作台</span>
+          </a>
+          <button class="nav-item" id="record-button" type="button">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5"/><path d="M4 4v4.5h4.5M12 8v4l3 2"/></svg>
+            <span>执行记录</span>
+            <span class="nav-count" id="record-count">0</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="sync-card">
+            <span class="pulse-dot"></span>
+            <div><strong>ONES 已连接</strong><small id="sync-time">刚刚同步</small></div>
+            <button class="icon-button" id="disconnect-button" type="button" aria-label="断开连接">
+              <svg viewBox="0 0 24 24"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5M14 8l4 4-4 4M8 12h10"/></svg>
+            </button>
+          </div>
+          <div class="profile-row">
+            <span class="avatar avatar-photo">CK</span>
+            <div><strong>陈康</strong><small>产品研发团队</small></div>
+            <button class="icon-button" type="button" aria-label="账户菜单">
+              <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-content" id="workbench">
+        <header class="topbar">
+          <button class="mobile-menu icon-button" id="mobile-menu" type="button" aria-label="打开菜单">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+          <div class="breadcrumb"><span>工作台</span><i>/</i><strong>迭代事项</strong></div>
+          <div class="topbar-actions">
+            <span class="demo-badge" id="environment-badge"><i></i> 演示数据</span>
+            <button class="icon-button help-button" type="button" aria-label="帮助">?</button>
+          </div>
+        </header>
+
+        <div class="page-content">
+          <section class="page-heading">
+            <div>
+              <span class="eyebrow"><i></i> ITERATION FOCUS</span>
+              <h1>迭代事项</h1>
+              <p>把与你相关的工作集中在一个清晰的视图里。</p>
+            </div>
+            <button class="button button-secondary" id="refresh-button" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7L20 14.5"/><path d="M20 20v-5.5h-5.5"/></svg>
+              同步数据
+            </button>
+          </section>
+
+          <section class="filters-card" aria-label="事项筛选">
+            <label class="select-field">
+              <span>项目</span>
+              <select id="project-select"></select>
+            </label>
+            <span class="filter-separator" aria-hidden="true"></span>
+            <label class="select-field iteration-field">
+              <span>迭代</span>
+              <select id="iteration-select"></select>
+            </label>
+            <span class="filter-spacer"></span>
+            <label class="select-field scope-field">
+              <span>范围</span>
+              <select id="scope-select">
+                <option value="related">与我相关</option>
+                <option value="assigned">分配给我</option>
+                <option value="reported">由我创建</option>
+              </select>
+            </label>
+          </section>
+
+          <section class="metric-grid" aria-label="迭代概览">
+            <article class="metric-card">
+              <div class="metric-label"><span class="metric-icon metric-blue"><svg viewBox="0 0 24 24"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8l5-5Z"/><path d="M9 12h6"/></svg></span><span>相关事项</span></div>
+              <div class="metric-value"><strong id="metric-total">0</strong><small>项</small></div>
+              <p><span class="trend-up">+3</span> 较上个迭代</p>
+            </article>
+            <article class="metric-card">
+              <div class="metric-label"><span class="metric-icon metric-violet"><svg viewBox="0 0 24 24"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg></span><span>进行中</span></div>
+              <div class="metric-value"><strong id="metric-progress">0</strong><small>项</small></div>
+              <p>其中 <b id="metric-blocked">0</b> 项存在阻塞</p>
+            </article>
+            <article class="metric-card">
+              <div class="metric-label"><span class="metric-icon metric-green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16.5 9"/></svg></span><span>已完成</span></div>
+              <div class="metric-value"><strong id="metric-done">0</strong><small>项</small></div>
+              <p><span class="trend-good" id="completion-rate">0%</span> 完成率</p>
+            </article>
+            <article class="metric-card">
+              <div class="metric-label"><span class="metric-icon metric-amber"><svg viewBox="0 0 24 24"><path d="M12 3 2.8 19h18.4L12 3Z"/><path d="M12 9v4M12 16h.01"/></svg></span><span>即将到期</span></div>
+              <div class="metric-value"><strong id="metric-due">0</strong><small>项</small></div>
+              <p>请在本周内处理</p>
+            </article>
+          </section>
+
+          <section class="issues-card">
+            <div class="issues-toolbar">
+              <div>
+                <h2>我的事项</h2>
+                <span class="result-count" id="result-count">0 项</span>
+              </div>
+              <div class="toolbar-controls">
+                <label class="search-box">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg>
+                  <input id="search-input" type="search" placeholder="搜索标题或编号" />
+                </label>
+                <select class="compact-select" id="status-filter" aria-label="按状态筛选">
+                  <option value="all">全部状态</option>
+                  <option value="待开始">待开始</option>
+                  <option value="进行中">进行中</option>
+                  <option value="已完成">已完成</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="check-cell"><input id="select-all" type="checkbox" aria-label="选择全部事项" /></th>
+                    <th>事项</th>
+                    <th>优先级</th>
+                    <th>状态</th>
+                    <th>负责人</th>
+                    <th>截止日期</th>
+                    <th class="row-actions-heading"><span class="sr-only">操作</span></th>
+                  </tr>
+                </thead>
+                <tbody id="issues-body"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="empty-state" hidden>
+              <span><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg></span>
+              <h3>没有找到匹配的事项</h3>
+              <p>尝试更换关键词或筛选条件。</p>
+            </div>
+            <footer class="table-footer">
+              <span id="table-caption">显示 0 项</span>
+              <span>数据更新于 <time id="last-updated">14:32</time></span>
+            </footer>
+          </section>
+        </div>
+      </main>
+
+      <div class="bulk-bar" id="bulk-bar" aria-live="polite">
+        <div class="bulk-selection">
+          <span class="selection-count" id="selection-count">0</span>
+          <div><strong>已选择 <b id="selection-label">0</b> 项</strong><small>可批量推进工作流</small></div>
+        </div>
+        <div class="bulk-actions">
+          <label>
+            <span>目标状态</span>
+            <select id="target-status">
+              <option value="">请选择目标状态</option>
+            </select>
+          </label>
+          <button class="button button-primary" id="update-button" type="button">
+            预检流转
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+          </button>
+          <button class="icon-button bulk-close" id="clear-selection" type="button" aria-label="清除选择">
+            <svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <dialog class="dialog workflow-dialog" id="update-dialog">
+      <div class="dialog-content">
+        <button class="icon-button dialog-close" id="dialog-close" type="button" aria-label="关闭">
+          <svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+        <span class="dialog-icon" id="dialog-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 3 2.8 19h18.4L12 3Z"/><path d="M12 9v4M12 16h.01"/></svg>
+        </span>
+        <div class="dialog-copy" id="dialog-copy">
+          <span class="eyebrow"><i></i> WORKFLOW CHECK</span>
+          <h2>目标节点预检</h2>
+          <p>已选择 <strong id="dialog-count">0</strong> 个事项，首选目标为 <span class="status-pill status-progress" id="dialog-target">—</span>。</p>
+          <div class="dialog-note">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            系统只执行已确认的正向工作流。TODO 事项必须重新选择可达节点后才能执行。
+          </div>
+          <div class="plan-loading" id="plan-loading" hidden><i></i><span>正在读取状态图并规划路径…</span></div>
+          <div class="workflow-summary" id="workflow-summary"></div>
+          <div class="workflow-plan" id="workflow-plan"></div>
+        </div>
+        <div class="progress-view" id="progress-view" hidden>
+          <h2 id="progress-title">正在更新工作流</h2>
+          <p id="progress-copy">正在校验所选事项，请稍候…</p>
+          <div class="progress-track"><i id="progress-bar"></i></div>
+          <div class="progress-meta"><span id="progress-detail">0 / 0</span><span id="progress-percent">0%</span></div>
+        </div>
+        <div class="dialog-actions" id="dialog-actions">
+          <button class="button button-quiet" id="cancel-update" type="button">取消</button>
+          <button class="button button-primary" id="confirm-update" type="button" disabled>确认并执行</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog class="dialog history-dialog" id="history-dialog">
+      <div class="dialog-content">
+        <button class="icon-button dialog-close" id="history-close" type="button" aria-label="关闭">
+          <svg viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+        <span class="eyebrow"><i></i> ACTIVITY LOG</span>
+        <h2>执行记录</h2>
+        <div class="history-list" id="history-list"></div>
+      </div>
+    </dialog>
+
+    <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

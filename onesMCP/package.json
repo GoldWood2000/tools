@@ -1,0 +1,9 @@
+{
+  "name": "orbit-ones-workbench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check app.js && node server.js --self-check"
+  }
+}
