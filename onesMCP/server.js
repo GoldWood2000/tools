@@ -1,22 +1,24 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 
 const HOST = process.env.ORBIT_HOST || "127.0.0.1";
 const PORT = Number(process.env.ORBIT_PORT || 4173);
 const ONES_MCP_URL = "https://sz.ones.cn/mcp";
-const ROOT = new URL("./", import.meta.url).pathname;
-const STATIC_FILES = new Set(["/", "/index.html", "/styles.css", "/app.js"]);
+const STATIC_ROOT = new URL("./dist/", import.meta.url);
 const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
 
 let activeClient = null;
 let activeProjects = [];
-let oauthRegistration = null;
+let oauthSession = null;
+let oauthRefreshPromise = null;
+const oauthRegistrations = new Map();
 const pendingOAuth = new Map();
 const workflowObservationCache = new Map();
 const OAUTH_METADATA_URL = "https://sz.ones.cn/.well-known/oauth-authorization-server";
-const OAUTH_REDIRECT_URI = `http://${HOST}:${PORT}/oauth/callback`;
+const OAUTH_SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const OAUTH_REFRESH_LEEWAY = 60_000;
 
 class HttpError extends Error {
   constructor(status, message, details) {
@@ -332,24 +334,41 @@ async function mapLimit(items, limit, mapper) {
   return results;
 }
 
-async function connect(body) {
-  if (body.serverUrl !== ONES_MCP_URL) throw new HttpError(400, `当前版本仅允许连接 ${ONES_MCP_URL}`);
-  if (typeof body.token !== "string" || body.token.trim().length < 8) throw new HttpError(400, "请输入有效的 Access Token");
-  const client = new McpClient(ONES_MCP_URL, body.token.trim());
+async function openMcpConnection(token) {
+  const client = new McpClient(ONES_MCP_URL, token);
   await client.connect();
   const projectTool = client.tool("search_for_projects") || client.tool("get_project_list");
   if (!projectTool) throw new HttpError(501, "当前 MCP 未提供项目查询工具");
   const projectResult = await client.callTool(projectTool.name, toolArguments(projectTool, {}));
   const projects = normalizeProjects(projectResult);
-  activeClient = client;
-  activeProjects = projects;
-  workflowObservationCache.clear();
-  return {
+  return { client, projects, data: {
     serverInfo: client.serverInfo,
     tools: [...client.tools.keys()],
     projects,
     warning: projects.length ? null : "连接成功，但 get_project_list 的返回格式无法识别。",
-  };
+  } };
+}
+
+function activateMcpConnection(connection) {
+  activeClient = connection.client;
+  activeProjects = connection.projects;
+  workflowObservationCache.clear();
+}
+
+function clearConnection() {
+  activeClient = null;
+  activeProjects = [];
+  oauthSession = null;
+  workflowObservationCache.clear();
+}
+
+async function connect(body) {
+  if (body.serverUrl !== ONES_MCP_URL) throw new HttpError(400, `当前版本仅允许连接 ${ONES_MCP_URL}`);
+  if (typeof body.token !== "string" || body.token.trim().length < 8) throw new HttpError(400, "请输入有效的 Access Token");
+  const connection = await openMcpConnection(body.token.trim());
+  activateMcpConnection(connection);
+  oauthSession = null;
+  return connection.data;
 }
 
 async function oauthMetadata() {
@@ -362,14 +381,36 @@ function base64Url(buffer) {
   return buffer.toString("base64url");
 }
 
-async function ensureOauthRegistration(metadata) {
-  if (oauthRegistration) return oauthRegistration;
+function isAllowedOauthHostname(hostname) {
+  const normalized = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (normalized === "localhost" || normalized === "::1" || normalized === HOST.toLowerCase() || normalized.endsWith(".local")) return true;
+  const parts = normalized.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  return parts[0] === 10 || parts[0] === 127 || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) || (parts[0] === 192 && parts[1] === 168);
+}
+
+function oauthRedirectUri(request) {
+  if (process.env.ORBIT_PUBLIC_ORIGIN) {
+    const configured = new URL(process.env.ORBIT_PUBLIC_ORIGIN);
+    if (!/^https?:$/.test(configured.protocol) || configured.username || configured.password) throw new HttpError(500, "ORBIT_PUBLIC_ORIGIN 必须是有效的 HTTP(S) 地址");
+    return `${configured.origin}/oauth/callback`;
+  }
+  const host = request.headers.host;
+  if (!host) throw new HttpError(400, "请求缺少 Host，无法生成 OAuth 回调地址");
+  const origin = new URL(`http://${host}`);
+  if (!isAllowedOauthHostname(origin.hostname)) throw new HttpError(400, "OAuth 仅允许 localhost、局域网 IP 或 .local 地址");
+  return `${origin.origin}/oauth/callback`;
+}
+
+async function ensureOauthRegistration(metadata, redirectUri, fresh = false) {
+  if (fresh) oauthRegistrations.delete(redirectUri);
+  if (oauthRegistrations.has(redirectUri)) return oauthRegistrations.get(redirectUri);
   const response = await fetch(metadata.registration_endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       client_name: "Orbit ONES Workbench",
-      redirect_uris: [OAUTH_REDIRECT_URI],
+      redirect_uris: [redirectUri],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
@@ -379,22 +420,23 @@ async function ensureOauthRegistration(metadata) {
   });
   const registration = await response.json().catch(() => ({}));
   if (!response.ok || !registration.client_id) throw new HttpError(502, registration.error_description || registration.error || "ONES OAuth 客户端注册失败");
-  oauthRegistration = registration;
+  oauthRegistrations.set(redirectUri, registration);
   return registration;
 }
 
-async function oauthStart(response) {
+async function oauthStart(request, url, response) {
   const metadata = await oauthMetadata();
-  const registration = await ensureOauthRegistration(metadata);
+  const redirectUri = oauthRedirectUri(request);
+  const registration = await ensureOauthRegistration(metadata, redirectUri, url.searchParams.get("fresh") === "1");
   const state = base64Url(randomBytes(24));
   const verifier = base64Url(randomBytes(48));
   const challenge = base64Url(createHash("sha256").update(verifier).digest());
-  pendingOAuth.set(state, { verifier, metadata, registration, createdAt: Date.now() });
+  pendingOAuth.set(state, { verifier, metadata, registration, redirectUri, createdAt: Date.now() });
   for (const [key, value] of pendingOAuth) if (Date.now() - value.createdAt > 10 * 60_000) pendingOAuth.delete(key);
   const authorizeUrl = new URL(metadata.authorization_endpoint);
   authorizeUrl.searchParams.set("response_type", "code");
   authorizeUrl.searchParams.set("client_id", registration.client_id);
-  authorizeUrl.searchParams.set("redirect_uri", OAUTH_REDIRECT_URI);
+  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
   authorizeUrl.searchParams.set("code_challenge", challenge);
   authorizeUrl.searchParams.set("code_challenge_method", "S256");
   authorizeUrl.searchParams.set("state", state);
@@ -414,7 +456,7 @@ async function oauthCallback(url, response) {
   const form = new URLSearchParams({
     grant_type: "authorization_code",
     code,
-    redirect_uri: OAUTH_REDIRECT_URI,
+    redirect_uri: pending.redirectUri,
     client_id: pending.registration.client_id,
     code_verifier: pending.verifier,
     resource: ONES_MCP_URL,
@@ -428,13 +470,129 @@ async function oauthCallback(url, response) {
   });
   const token = await tokenResponse.json().catch(() => ({}));
   if (!tokenResponse.ok || !token.access_token) throw new HttpError(401, token.error_description || token.error || "ONES OAuth Token 交换失败");
-  await connect({ serverUrl: ONES_MCP_URL, token: token.access_token });
+  const authorizedAt = Date.now();
+  const connection = await openMcpConnection(token.access_token);
+  oauthSession = {
+    accessToken: token.access_token,
+    refreshToken: token.refresh_token || null,
+    expiresAt: oauthTokenExpiresAt(token, authorizedAt),
+    authorizedAt,
+    metadata: pending.metadata,
+    registration: pending.registration,
+  };
+  activateMcpConnection(connection);
   response.writeHead(302, { Location: "/?oauth=success", "Cache-Control": "no-store" });
   response.end();
 }
 
-async function listIssues(body) {
+function oauthTokenExpiresAt(token, now = Date.now()) {
+  const expiresIn = Number(token?.expires_in);
+  return now + (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600) * 1000;
+}
+
+async function refreshOauthClient(force = false) {
+  const session = oauthSession;
+  if (!session) throw new HttpError(401, "请重新完成 ONES OAuth 授权");
+  if (Date.now() >= session.authorizedAt + OAUTH_SESSION_MAX_AGE) {
+    clearConnection();
+    throw new HttpError(401, "ONES OAuth 授权已保持 7 天，请重新授权");
+  }
+  if (!force && activeClient && session.expiresAt - Date.now() > OAUTH_REFRESH_LEEWAY) return activeClient;
+  if (!session.refreshToken) {
+    if (!force && activeClient && Date.now() < session.expiresAt) return activeClient;
+    clearConnection();
+    throw new HttpError(401, "ONES 未签发可续期的 Refresh Token，请重新授权");
+  }
+  if (oauthRefreshPromise) return oauthRefreshPromise;
+
+  oauthRefreshPromise = (async () => {
+    const form = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: session.refreshToken,
+      client_id: session.registration.client_id,
+      resource: ONES_MCP_URL,
+    });
+    if (session.registration.client_secret) form.set("client_secret", session.registration.client_secret);
+    let tokenResponse;
+    try {
+      tokenResponse = await fetch(session.metadata.token_endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+        body: form,
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch (error) {
+      throw new HttpError(502, `ONES OAuth 自动续期失败：${error.message}`);
+    }
+    const token = await tokenResponse.json().catch(() => ({}));
+    if (!tokenResponse.ok || !token.access_token) {
+      const message = token.error_description || token.error || "ONES OAuth 自动续期失败";
+      if (tokenResponse.status === 400 || tokenResponse.status === 401) clearConnection();
+      throw new HttpError(tokenResponse.status === 400 || tokenResponse.status === 401 ? 401 : 502, message);
+    }
+    const refreshedAt = Date.now();
+    const connection = await openMcpConnection(token.access_token);
+    if (oauthSession !== session) throw new HttpError(401, "ONES OAuth 授权已断开");
+    oauthSession = {
+      ...session,
+      accessToken: token.access_token,
+      refreshToken: token.refresh_token || session.refreshToken,
+      expiresAt: oauthTokenExpiresAt(token, refreshedAt),
+    };
+    activateMcpConnection(connection);
+    return activeClient;
+  })();
+
+  try {
+    return await oauthRefreshPromise;
+  } finally {
+    oauthRefreshPromise = null;
+  }
+}
+
+async function ensureActiveClient() {
+  if (oauthSession) {
+    if (Date.now() >= oauthSession.authorizedAt + OAUTH_SESSION_MAX_AGE) {
+      clearConnection();
+      throw new HttpError(401, "ONES OAuth 授权已保持 7 天，请重新授权");
+    }
+    if (!activeClient || oauthSession.expiresAt - Date.now() <= OAUTH_REFRESH_LEEWAY) await refreshOauthClient();
+  }
   if (!activeClient) throw new HttpError(401, "请先连接 ONES MCP");
+  return activeClient;
+}
+
+async function callActiveTool(name, args = {}) {
+  const client = await ensureActiveClient();
+  try {
+    return await client.callTool(name, args);
+  } catch (error) {
+    if (error.status !== 401 || !oauthSession?.refreshToken) throw error;
+    if (client === activeClient) await refreshOauthClient(true);
+    return activeClient.callTool(name, args);
+  }
+}
+
+async function sessionState() {
+  if (oauthSession) {
+    try {
+      await ensureActiveClient();
+    } catch (error) {
+      if (error.status === 401) return { connected: false, projects: [], serverInfo: null, error: error.message };
+      throw error;
+    }
+  }
+  return {
+    connected: Boolean(activeClient),
+    projects: activeProjects,
+    serverInfo: activeClient?.serverInfo || null,
+    renewable: Boolean(oauthSession?.refreshToken),
+    authorizedUntil: oauthSession ? new Date(oauthSession.authorizedAt + OAUTH_SESSION_MAX_AGE).toISOString() : null,
+  };
+}
+
+async function listIssues(body) {
+  await ensureActiveClient();
   const sprintTool = activeClient.tool("search_for_sprints");
   const statusTool = activeClient.tool("get_issue_status");
   const grammarTool = activeClient.tool("get_onesql_grammar_help");
@@ -442,17 +600,17 @@ async function listIssues(body) {
   if (!sprintTool || !statusTool || !grammarTool || !queryTool) throw new HttpError(501, "当前 ONES MCP 缺少状态、迭代或 ONESQL 查询工具");
 
   const [sprintResult, statusResult] = await Promise.all([
-    activeClient.callTool(sprintTool.name, toolArguments(sprintTool, { projectId: body.projectId })),
-    activeClient.callTool(statusTool.name, toolArguments(statusTool, { projectId: body.projectId })),
+    callActiveTool(sprintTool.name, toolArguments(sprintTool, { projectId: body.projectId })),
+    callActiveTool(statusTool.name, toolArguments(statusTool, { projectId: body.projectId })),
   ]);
   const iterations = normalizeSprints(sprintResult);
   const statuses = normalizeStatuses(statusResult);
   if (!iterations.length) return { issues: [], iterations: [], statuses, rawCount: 0 };
 
-  await activeClient.callTool(grammarTool.name, {});
+  await callActiveTool(grammarTool.name, {});
   const sprintIDs = iterations.map((sprint) => `uid('${String(sprint.id).replaceAll("'", "''")}')`).join(", ");
   const query = `select uid(uuid, field001, field004.uuid, field004.name, field005.uuid, field005.name, field007.uuid, field007.name, field009.uuid, field009.name, field010, field011.uuid, field011.name)\nfrom issue\nwhere uid(field011) in (${sprintIDs}) and uid(field004) in (currentUser())\nlimit 0, 200`;
-  const result = await activeClient.callTool(queryTool.name, { query });
+  const result = await callActiveTool(queryTool.name, { query });
   const issues = normalizeIssues(result);
   return { issues, iterations, statuses, rawCount: issues.length };
 }
@@ -474,7 +632,7 @@ function workflowGroup(issue) {
 }
 
 async function previewIssueWorkflows(body) {
-  if (!activeClient) throw new HttpError(401, "请先连接 ONES MCP");
+  await ensureActiveClient();
   const issues = (Array.isArray(body.issues) ? body.issues : []).map(issueInput).filter((issue) => issue.id);
   const catalog = (Array.isArray(body.catalog) ? body.catalog : []).slice(0, 200).map(issueInput).filter((issue) => issue.id);
   if (!body.projectId || !body.targetStatusId || !issues.length) throw new HttpError(400, "缺少项目、事项或目标状态");
@@ -483,7 +641,7 @@ async function previewIssueWorkflows(body) {
   const statusTool = activeClient.tool("get_issue_status");
   const workflowTool = activeClient.tool("get_issue_executable_workflows");
   if (!statusTool || !workflowTool) throw new HttpError(501, "当前 ONES MCP 缺少状态或工作流工具");
-  const statusResult = await activeClient.callTool(statusTool.name, toolArguments(statusTool, { projectId: body.projectId }));
+  const statusResult = await callActiveTool(statusTool.name, toolArguments(statusTool, { projectId: body.projectId }));
   const statuses = normalizeStatuses(statusResult);
   const statusNames = new Map(statuses.map((status) => [status.id, status.name]));
   if (!statusNames.has(body.targetStatusId)) throw new HttpError(400, "目标状态不属于当前项目");
@@ -491,7 +649,7 @@ async function previewIssueWorkflows(body) {
   const representatives = new Map();
   for (const issue of [...catalog, ...issues]) representatives.set(workflowGroup(issue), issue);
   await mapLimit([...representatives.values()].slice(0, 60), 5, async (issue) => {
-    const result = await activeClient.callTool(workflowTool.name, toolArguments(workflowTool, { issueId: issue.id }));
+    const result = await callActiveTool(workflowTool.name, toolArguments(workflowTool, { issueId: issue.id }));
     workflowObservationCache.set(`${body.projectId}:${workflowGroup(issue)}`, {
       projectId: body.projectId,
       typeId: issue.typeId || issue.type || "unknown",
@@ -501,7 +659,7 @@ async function previewIssueWorkflows(body) {
 
   const directByIssue = new Map();
   await mapLimit(issues, 5, async (issue) => {
-    const result = await activeClient.callTool(workflowTool.name, toolArguments(workflowTool, { issueId: issue.id }));
+    const result = await callActiveTool(workflowTool.name, toolArguments(workflowTool, { issueId: issue.id }));
     const edges = normalizeWorkflows(result, statuses);
     directByIssue.set(issue.id, edges);
     const cacheKey = `${body.projectId}:${workflowGroup(issue)}`;
@@ -543,7 +701,7 @@ async function previewIssueWorkflows(body) {
 }
 
 async function executeIssueWorkflowPlan(body) {
-  if (!activeClient) throw new HttpError(401, "请先连接 ONES MCP");
+  await ensureActiveClient();
   const items = Array.isArray(body.items) ? body.items : [];
   if (!body.projectId || !items.length) throw new HttpError(400, "缺少项目或执行计划");
   if (items.length > 100) throw new HttpError(400, "单次最多更新 100 个事项");
@@ -551,7 +709,7 @@ async function executeIssueWorkflowPlan(body) {
   const workflowTool = activeClient.tool("get_issue_executable_workflows");
   const executeTool = activeClient.tool("execute_issue_workflow");
   if (!statusTool || !workflowTool || !executeTool) throw new HttpError(501, "当前 ONES MCP 缺少状态或工作流工具");
-  const statusResult = await activeClient.callTool(statusTool.name, toolArguments(statusTool, { projectId: body.projectId }));
+  const statusResult = await callActiveTool(statusTool.name, toolArguments(statusTool, { projectId: body.projectId }));
   const statuses = normalizeStatuses(statusResult);
   const statusNames = new Map(statuses.map((status) => [status.id, status.name]));
 
@@ -570,12 +728,12 @@ async function executeIssueWorkflowPlan(body) {
         seen.add(step.endId);
       }
       for (const step of path) {
-        const listed = await activeClient.callTool(workflowTool.name, toolArguments(workflowTool, { issueId }));
+        const listed = await callActiveTool(workflowTool.name, toolArguments(workflowTool, { issueId }));
         const candidates = normalizeWorkflows(listed, statuses);
         const workflow = candidates.find((candidate) => candidate.endId === step.endId && (!finalStatusId || candidate.startId === finalStatusId));
         if (!workflow) { failure = `无法从「${statusNames.get(finalStatusId) || finalStatusId}」正常流转到「${statusNames.get(step.endId) || step.endId}」`; break; }
         const args = toolArguments(executeTool, { issueId, workflowId: workflow.id, targetStatus: workflow.endName });
-        await activeClient.callTool(executeTool.name, args);
+        await callActiveTool(executeTool.name, args);
         finalStatusId = workflow.endId;
         executedSteps += 1;
       }
@@ -610,13 +768,13 @@ function sendJson(response, status, data) {
 }
 
 async function serveStatic(pathname, response) {
-  if (!STATIC_FILES.has(pathname)) throw new HttpError(404, "Not found");
   const file = pathname === "/" ? "index.html" : pathname.slice(1);
-  const content = await readFile(join(ROOT, file));
+  if (file !== "index.html" && !/^assets\/[\w.-]+$/.test(file)) throw new HttpError(404, "Not found");
+  const content = await readFile(new URL(file, STATIC_ROOT));
   response.writeHead(200, {
     "Content-Type": MIME[extname(file)] || "application/octet-stream",
     "Cache-Control": "no-store",
-    "Content-Security-Policy": "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'",
+    "Content-Security-Policy": "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; style-src-attr 'unsafe-inline'; script-src 'self'",
     "X-Content-Type-Options": "nosniff",
   });
   response.end(content);
@@ -625,9 +783,9 @@ async function serveStatic(pathname, response) {
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, `http://${request.headers.host || `${HOST}:${PORT}`}`);
-    if (request.method === "GET" && url.pathname === "/api/oauth/start") return await oauthStart(response);
+    if (request.method === "GET" && url.pathname === "/api/oauth/start") return await oauthStart(request, url, response);
     if (request.method === "GET" && url.pathname === "/oauth/callback") return await oauthCallback(url, response);
-    if (request.method === "GET" && url.pathname === "/api/session") return sendJson(response, 200, { connected: Boolean(activeClient), projects: activeProjects, serverInfo: activeClient?.serverInfo || null });
+    if (request.method === "GET" && url.pathname === "/api/session") return sendJson(response, 200, await sessionState());
     if (request.method === "GET") return await serveStatic(url.pathname, response);
     if (request.method !== "POST") throw new HttpError(405, "Method not allowed");
     const body = await readJson(request);
@@ -635,9 +793,9 @@ const server = createServer(async (request, response) => {
     if (url.pathname === "/api/issues") return sendJson(response, 200, await listIssues(body));
     if (url.pathname === "/api/issues/workflows/preview") return sendJson(response, 200, await previewIssueWorkflows(body));
     if (url.pathname === "/api/issues/workflows/execute") return sendJson(response, 200, await executeIssueWorkflowPlan(body));
-    if (url.pathname === "/api/disconnect") { activeClient = null; activeProjects = []; workflowObservationCache.clear(); return sendJson(response, 200, { disconnected: true }); }
+    if (url.pathname === "/api/disconnect") { clearConnection(); return sendJson(response, 200, { disconnected: true }); }
     if (url.pathname === "/api/diagnostics") {
-      if (!activeClient) throw new HttpError(401, "尚未连接");
+      await ensureActiveClient();
       return sendJson(response, 200, { serverInfo: activeClient.serverInfo, tools: [...activeClient.tools.values()] });
     }
     throw new HttpError(404, "Not found");
@@ -659,7 +817,9 @@ if (process.argv.includes("--self-check")) {
   ];
   if (issue?.id !== "issue-id" || issue.status !== "未开始" || issue.type !== "需求" || issue.iterationId !== "sprint-id"
     || findWorkflowPath(edges, "todo", "test")?.length !== 2 || findWorkflowPath(edges, "test", "todo") !== null
-    || reachableWorkflowTargets(edges, "todo").length !== 2) {
+    || reachableWorkflowTargets(edges, "todo").length !== 2 || !isAllowedOauthHostname("192.168.10.20")
+    || !isAllowedOauthHostname("localhost") || isAllowedOauthHostname("example.com")
+    || OAUTH_SESSION_MAX_AGE !== 604_800_000 || oauthTokenExpiresAt({ expires_in: 3600 }, 1_000) !== 3_601_000) {
     throw new Error("ONESQL 事项解析自检失败");
   }
   console.log("ONESQL 与工作流路径自检通过");

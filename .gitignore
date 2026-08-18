@@ -1,3 +1,7 @@
 .sessions
 .agents/
 tffadd/fonts/output
+
+node_modules
+package-lock.json
+dist
