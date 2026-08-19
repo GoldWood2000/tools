@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node scripts/dev.js",
     "build": "vite build",
     "prestart": "npm run build",
     "start": "node server.js",
-    "check": "npm run build && node --check server.js && node server.js --self-check"
+    "check": "npm run build && node --check server.js && node --check scripts/dev.js && node server.js --self-check"
   },
   "dependencies": {
     "@radix-ui/react-select": "^2.3.7",

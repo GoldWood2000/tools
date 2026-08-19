@@ -22,6 +22,14 @@ npm start
 
 打开 <http://localhost:4173>，点击“使用 ONES OAuth 授权”。页面通过 OAuth Authorization Code + PKCE 连接 `https://sz.ones.cn/mcp`，Access Token 和 Refresh Token 只保存在本机 Node 进程内存中。授权会话最长保持 7 天，期间会在 Access Token 到期前自动续期；Node 进程重启后需要重新授权。
 
+需要使用 Vite 热更新并通过局域网 IP 访问时：
+
+```bash
+npm run dev
+```
+
+访问 `http://192.168.x.x:5173`。命令会同时启动仅监听本机的 Node 后端，并由 Vite 代理 `/api` 和 `/oauth` 请求；按 `Ctrl+C` 会一起关闭。
+
 需要从局域网 IP 访问时，可指定本机当前 IP 启动：
 
 ```bash
